@@ -25,7 +25,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from typing import List, Dict
 
 # Fine Tuning and evaluation 
-# Reinforcement Learning ( Model -> Lalma , Reward Model -> Human Feeback and Chatgpt)
+# Reinforcement Learning ( Model -> Llama , Reward Model -> Human Feeback and Chatgpt)
 
 app = FastAPI(title="DTUnator RAG API")
 
