@@ -1,6 +1,6 @@
 # DTUnator v2: Adaptive RAG with SFT and RL
 
-Second version of [DTUnator](https://github.com/Keshav-cse/DTUnator), the DTU doubt-solving
+Second version of [DTUnator](https://github.com/keshav-talwar/DTUnator), the DTU doubt-solving
 assistant. It moves the pipeline behind a **FastAPI** backend with a custom web UI, switches the
 vector store to **ChromaDB**, and is the base for **supervised fine-tuning (SFT)** and
 **reinforcement learning (RL)** on top of the RAG answers.
