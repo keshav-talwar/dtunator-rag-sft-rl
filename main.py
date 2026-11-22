@@ -1,27 +1,30 @@
 # RAG model 
-import os
+
+# Plan -> Make it so It fliters the data which is relevant to the student
+# so 1st year student only get the data which is relevant to them and so on
+
+import os 
 import sys
 import time
 import logging
 import re
 import io
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass # --> Metadata for the chunks
 from dotenv import load_dotenv
-from PIL import Image
-import pytesseract
-import pymupdf
+from PIL import Image 
+import pytesseract 
+import pymupdf #to scan the pdf file and extract the text 
 from pymupdf import Page
-import chromadb
-from chromadb.config import Settings
+import chromadb #vector Database 
+from chromadb.config import Settings 
 from sentence_transformers import CrossEncoder
 from transformers import AutoTokenizer
-from faster_whisper import WhisperModel
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse # 
 import requests
-from sklearn import metrics
-from sklearn.metrics import precision_recall_fscore_support 
+from sklearn import metrics # Evaluation Metrics
+from sklearn.metrics import precision_recall_fscore_support # Evaluation Metrics
 from typing import List, Dict
 
 # Fine Tuning and evaluation 
@@ -33,26 +36,36 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)])
 logger = logging.getLogger(__name__)
 
-ONDEMAND_API_KEY = os.getenv("ONDEMAND_API_KEY")
-ONDEMAND_URL = "https://api.on-demand.io/chat/v1/sessions/query" 
-ONDEMAND_ENDPOINT_ID = "predefined-openai-gpt4.1-nano"
 
+
+#Vector Database 
 CHROMA_DB_PATH = "./chroma_db"
 COLLECTION_NAME = "collection"
+
+
 
 MAX_HISTORY_TURNS = 5
 WHISPER_MODEL_SIZE = "distil-medium.en"
 
+# Reward Model for RLHF
+ONDEMAND_API_KEY = os.getenv("ONDEMAND_API_KEY")
+ONDEMAND_URL = "https://api.on-demand.io/chat/v1/sessions/query" 
+ONDEMAND_ENDPOINT_ID = "predefined-openai-gpt4.1-nano"
+
+
 
 
 logger.info("Loading tokenizer...")
-tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2") #I will change it 
+#  BM3
+#  NV embed
+tokenizer = AutoTokenizer.from_pretrained('''"sentence-transformers/all-MiniLM-L6-v2"Place holder''') #Tokenizing the text data to store it in chromaDB and used for CrossEncoder 
 
 logger.info("Loading cross encoder...")
-cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2") #Model 
 
-logger.info("Loading Whisper...")
-whisper_model = WhisperModel(WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+
+cross_encoder = CrossEncoder('''"cross-encoder/ms-marco-MiniLM-L-6-v2" Place holder''') #Reranking Model - Improve the revelance of the docs
+
+#No clue how to use 
 
 
 chroma_client = chromadb.Client(
@@ -98,7 +111,7 @@ def chunks_sematically(text,max_tokens=200)-> List[str]:
 
 
 
-def add_chunks_to_chroma(chunks):
+def add_chunks_to_chroma(chunks): # Each chunk is a dict with "id", "text->actual data ", " source -> metadata "
     ids = []
     documents = []
     metadatas = []
@@ -114,18 +127,12 @@ def add_chunks_to_chroma(chunks):
         metadatas=metadatas
     )
 
-def process_scanned_page(page):
+def process_scanned_page(page): # 
     pix = page.get_pixmap(dpi=300)
     img_data = pix.tobytes("png")
     image = Image.open(io.BytesIO(img_data))
     return pytesseract.image_to_string(image, lang="eng")
 
-def extract_from_audio(audio_path):
-    segments, _ = whisper_model.transcribe(audio_path, beam_size=1, vad_filter=True)
-    full_text = ""
-    for segment in segments:
-        full_text += segment.text + "\n"
-    return full_text
 
 def user_sends_file(file_path):
     file_path = Path(file_path)
@@ -150,9 +157,6 @@ def user_sends_file(file_path):
             else:
                 all_text += text
         doc.close()
-
-    elif ext in [".mp3", ".wav", ".aac", ".flac", ".ogg"]:
-        all_text = extract_from_audio(str(file_path))
 
     elif ext in [".txt", ".md"]:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -205,8 +209,6 @@ def cross_rerank(query, docs, top_k=5):
         })
 
     return results
-
-# -------------------- HISTORY FORMAT --------------------
 
 def format_history(messages):
     history = messages[-MAX_HISTORY_TURNS * 2 :]

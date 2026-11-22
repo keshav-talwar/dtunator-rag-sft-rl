@@ -23,3 +23,6 @@ temp_uploads/
 
 # Logs
 *.log
+
+# Downloaded model files (Meta Llama 3 license/README/cache)
+llama3/
