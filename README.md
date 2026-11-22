@@ -1,81 +1,51 @@
+# DTUnator v2: Adaptive RAG with SFT and RL
 
-## Overview
+Second version of [DTUnator](https://github.com/Keshav-cse/DTUnator), the DTU doubt-solving
+assistant. It moves the pipeline behind a **FastAPI** backend with a custom web UI, switches the
+vector store to **ChromaDB**, and is the base for **supervised fine-tuning (SFT)** and
+**reinforcement learning (RL)** on top of the RAG answers.
 
-This project extends the original DTUnator system by building an adaptive RAG architecture designed to improve response quality through fine-tuning and reinforcement learning strategies.
+History: `DTUnator` (hackathon) → `rag-prototype` → **`dtunator-rag-sft-rl`** (this).
 
-The system retrieves relevant information from a vector database and generates context-aware responses using a language model. Planned extensions include supervised fine-tuning (SFT) and reinforcement learning (RL) to optimize response quality and retrieval efficiency.
+## Status
 
----
+| Part | State |
+|---|---|
+| Ingestion (PDF + Tesseract OCR), cleaning, token-based chunking (200 tokens) | implemented (`main.py`) |
+| ChromaDB store (`./chroma_db`), top-10 retrieval, cross-encoder rerank to the top 5 | implemented, but see Known issues |
+| Refuses when nothing is retrieved ("I do not have enough verified DTU information…") | implemented, hook point for the reward model |
+| FastAPI `POST /chat` with streaming response | implemented |
+| Web UI (`index.html`, calls `http://localhost:8000/chat`) + Streamlit wrapper (`app.py`) | implemented |
+| SFT on DTU Q&A pairs | **planned** (`test.py` is a Llama-3-8B-Instruct loading/generation check) |
+| RL / reward model (RLHF) | **planned** |
+| Hybrid dense + sparse retrieval (BGE-M3), bge-reranker | **being evaluated** (`Models_for_Rag.txt`) |
 
-## Architecture
+## Files
 
-The system follows a modular retrieval and generation pipeline:
+| File | What it is |
+|---|---|
+| `main.py` | Backend: ingestion → Chroma → rerank → OnDemand LLM (`predefined-openai-gpt4.1-nano`) → `/chat` |
+| `index.html` | Frontend chat UI (streams from `/chat`) |
+| `app.py` | Streamlit page that embeds `index.html` |
+| `test.run.py` | Snapshot of the v1 Streamlit + Weaviate app, kept for comparison |
+| `test.py` | Loads `meta-llama/Llama-3-8b-instruct` with transformers and generates, a first step toward SFT |
+| `Models_for_Rag.txt` | Notes on embedding/reranker choices (BGE-M3 hybrid retrieval, bge-reranker, NV-Embed) |
 
-### 1. Document Ingestion & Preprocessing
-- PDF scanning and text extraction  
-- OCR-based text detection (Tesseract)  
-- Noise reduction and cleaning  
+## Run
 
-### 2. Text Processing
-- Semantic-aware text chunking  
-- Embedding generation using transformer-based models  
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt streamlit
+export ONDEMAND_API_KEY=...            # keep it in .env, which is gitignored
+uvicorn main:app --port 8000           # backend
+streamlit run app.py                   # UI (or open index.html directly)
+```
 
-### 3. Storage & Indexing
-- Vector database storage (ChromaDB / FAISS)  
+## Known issues
 
-### 4. Retrieval Pipeline
-- Similarity search retrieval  
-- Cross-encoder reranking for semantic relevance refinement  
-
-### 5. Generation Layer
-- Context injection into LLM  
-- Response generation  
-
-### 6. Application Layer
-- FastAPI backend  
-- Streamlit interface  
-
-### 7. Conversation Memory
-- History retention architecture for contextual continuity  
-
----
-
-## Previous Work
-
-The original DTUnator hackathon prototype (BrainWave 2.0) is available here:  
-[DTUnator](https://github.com/Keshav-cse/DTUnator)
-
-This repository builds upon and extends that system with architectural improvements and adaptive optimization strategies.
-
----
-
-## Planned Enhancements
-
-- Supervised Fine-Tuning (SFT) on curated DTU-specific datasets  
-- Reinforcement Learning (RL) for response optimization  
-- Reward modeling for evaluation  
-- Adaptive retrieval strategies  
-
----
-
-## Tech Stack
-
-- Python  
-- python-dotenv  
-- Pillow  
-- pytesseract  
-- PyMuPDF  
-- ChromaDB  
-- sentence-transformers  
-- transformers  
-- FastAPI  
-- Uvicorn  
-- scikit-learn  
-
----
-## Current Status
-- Baseline RAG implemented  
-- SFT integration in progress  
-- RL optimization pipeline under development  
-
-> This project is actively under development. Features and documentation will be updated as progress is made.
+- In `main.py`, the tokenizer and cross-encoder model names are wrapped in placeholder strings
+  (`'''"sentence-transformers/all-MiniLM-L6-v2"Place holder'''`), so model loading fails until
+  they're replaced with the plain names.
+- `requirements.txt` is missing `streamlit` (needed for `app.py`), and `torch` (needed for `test.py`).
+- `chromadb.Client(Settings(persist_directory=…))` doesn't persist with newer chromadb;
+  `chromadb.PersistentClient(path=…)` does.
